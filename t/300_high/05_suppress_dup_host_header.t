@@ -35,7 +35,7 @@ test_tcp(
                 $hash->{$k}++;
             }
             is $hash->{Host}, 1, 'Host header is one';
-            is $env->{HTTP_HOST}, "127.0.0.1:$port", 'Host header is ok';
+            is $env->{HTTP_HOST}, "127.0.0.1", 'Host header is ok';
             return [200, ['Content-Length' => 2], ['ok']];
         });
     },

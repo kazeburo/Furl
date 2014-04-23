@@ -307,9 +307,11 @@ sub request {
     my $method = $args{method} || 'GET';
     my $connection_header = $self->{connection_header};
     {
-        my @headers = @{$self->{headers}};
+        
         $connection_header = 'close'
             if $method eq 'HEAD';
+        my @headers;
+        my %header_exists;
         if (my $in_headers = $args{headers}) {
             for (my $i = 0; $i < @$in_headers; $i += 2) {
                 my $name = $in_headers->[$i];
@@ -317,14 +319,23 @@ sub request {
                     $connection_header = $in_headers->[$i + 1];
                 } else {
                     push @headers, $name, $in_headers->[$i + 1];
+                    $header_exists{lc($name)} = 1;
                 }
             }
         }
+        # default headers
+        for (my $i = 0; $i < @{$self->{headers}}; $i += 2) {
+            my $name = $self->{headers}->[$i];
+            push @headers, $name, $self->{headers}->[$i + 1]
+                unless exists $header_exists{lc($name)};
+            
+        }
+
         unshift @headers, 'Connection', $connection_header;
-        if (exists $self->{proxy_authorization}) {
+        if (exists $self->{proxy_authorization} && ! exists $header_exists{proxy_authorization} ) {
             push @headers, 'Proxy-Authorization', $self->{proxy_authorization};
         }
-        if (defined $username) {
+        if (defined $username && ! exists $header_exists{authorization} ) {
             _requires('MIME/Base64.pm', 'Basic auth');
             push @headers, 'Authorization', 'Basic ' . MIME::Base64::encode_base64("${username}:${password}");
         }
@@ -335,12 +346,12 @@ sub request {
             $content_is_fh = Scalar::Util::openhandle($content);
             if(!$content_is_fh && ref $content) {
                 $content = $self->make_x_www_form_urlencoded($content);
-                if(!defined _header_get(\@headers, 'Content-Type')) {
+                if(!exists $header_exists{'content-type'}) {
                     push @headers, 'Content-Type'
                         => 'application/x-www-form-urlencoded';
                 }
             }
-            if(!defined _header_get(\@headers, 'Content-Length')) {
+            if(!exists $header_exists{'content-length'}) {
                 my $content_length;
                 if($content_is_fh) {
                     my $assert = sub {
@@ -363,7 +374,9 @@ sub request {
         }
 
         # finally, set Host header
-        push @headers, 'Host' => (($port == $default_port) ? $host : "$host:$port");
+        if (!exists $header_exists{host}) {
+            push @headers, 'Host' => (($port == $default_port) ? $host : "$host:$port");
+        }
 
         my $request_uri = $proxy ? "$scheme://$host:$port$path_query" : $path_query;
 

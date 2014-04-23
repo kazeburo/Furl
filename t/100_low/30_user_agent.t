@@ -26,7 +26,7 @@ test_tcp(
                     headers => [ "User-Agent" => "foobot" ]
                 );
             is $code, 200;
-            like $content, qr/\A Furl::HTTP\/[^,]+,\sfoobot /xms;
+            is $content, 'foobot';
         };
 
         subtest 'set agent and request with agent' => sub {
@@ -38,7 +38,7 @@ test_tcp(
                     headers => [ "User-Agent" => "barbot" ]
                 );
             is $code, 200;
-            is $content, 'foobot, barbot';
+            is $content, 'barbot';
         };
     },
     server => sub {
